@@ -434,7 +434,13 @@ html[data-theme="vision"] .btn-outline:hover {
   border: none !important;
   box-shadow: none !important;
   border-radius: 0 !important;
-  padding: 0 !important;
+  padding: 20px 20px 140px 20px !important; /* Espacio para que la revista no toque los bordes y libre la barra inferior */
+}
+
+@media (min-width: 768px) {
+  .magazine-fullscreen-active #magazineViewport {
+    padding: 30px 30px 90px 30px !important; /* Menor padding inferior en escritorio */
+  }
 }
 
 /* Ocultar cabecera en pantalla completa */
@@ -442,16 +448,26 @@ html[data-theme="vision"] .btn-outline:hover {
   display: none !important;
 }
 
-/* Controles flotantes en pantalla completa */
+/* Controles fijos en el fondo (como barra de sistema) en pantalla completa */
 .magazine-fullscreen-active #magazineControls {
-  position: absolute !important;
-  bottom: 24px !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  width: calc(100% - 48px) !important;
-  max-width: 760px !important;
-  margin-top: 0 !important;
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  background-color: rgba(10, 10, 20, 0.88) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
   z-index: 99999 !important;
+  transform: translateY(0) !important;
+  padding: 12px 24px !important;
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.5) !important;
   transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.4s !important;
 }
 
@@ -473,15 +489,22 @@ html[data-theme="vision"] .btn-outline:hover {
 .magazine-fullscreen-active.hide-interface #magazineControls {
   opacity: 0 !important;
   visibility: hidden !important;
-  transform: translate(-50%, 20px) !important;
+  transform: translateY(100%) !important; /* Desliza hacia abajo fuera de la pantalla */
   pointer-events: none !important;
 }
 
 .magazine-fullscreen-active.hide-interface #magazineFloatingClose {
   opacity: 0 !important;
   visibility: hidden !important;
-  transform: translate(0, -20px) !important;
+  transform: translateY(-20px) !important;
   pointer-events: none !important;
+}
+
+/* Ocultar botones flotantes laterales en móviles para que no estorben en la lectura */
+@media (max-width: 767px) {
+  #magPrevOverlay, #magNextOverlay {
+    display: none !important;
+  }
 }
 
 /* Título, textos y botones adaptados a Pantalla Completa (Tema Oscuro Premium) */
@@ -602,6 +625,10 @@ html[data-theme="vision"] .btn-outline:hover {
   -webkit-perspective: 2000px;
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
+  width: auto !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
 }
 
 #magazineFlipPage {
