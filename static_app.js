@@ -2750,8 +2750,14 @@ function handleFullscreenChange() {
           <span>Salir Pantalla</span>
         `;
       }
+      resetControlsTimer();
     } else {
       card.classList.remove('magazine-fullscreen-active');
+      card.classList.remove('hide-interface');
+      if (controlsTimeout) {
+        clearTimeout(controlsTimeout);
+        controlsTimeout = null;
+      }
       if (fsToggle) {
         fsToggle.innerHTML = `
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2808,20 +2814,89 @@ function handleKeyDown(e) {
 
 let touchStartX = 0;
 let touchStartY = 0;
+let isPinching = false;
+let initialPinchDist = 0;
+let initialPinchScale = 1.0;
+let controlsTimeout = null;
+
+function resetControlsTimer() {
+  const { card } = magazineElements;
+  if (!card) return;
+
+  if (controlsTimeout) {
+    clearTimeout(controlsTimeout);
+    controlsTimeout = null;
+  }
+
+  card.classList.remove('hide-interface');
+
+  const isFS = card.classList.contains('magazine-fullscreen-active');
+  if (isFS) {
+    controlsTimeout = setTimeout(() => {
+      const activeEl = document.activeElement;
+      const isInputActive = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT');
+      if (!isInputActive) {
+        card.classList.add('hide-interface');
+      }
+    }, 3000);
+  }
+}
 
 function handleTouchStart(e) {
-  if (magazineState.zoomScale > 1.0) return;
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
+  resetControlsTimer();
+
+  if (e.touches.length === 2) {
+    isPinching = true;
+    const t1 = e.touches[0];
+    const t2 = e.touches[1];
+    initialPinchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+    initialPinchScale = magazineState.zoomScale;
+    e.preventDefault();
+  } else if (e.touches.length === 1) {
+    isPinching = false;
+    if (magazineState.zoomScale === 1.0) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }
+  }
+}
+
+function handleTouchMove(e) {
+  resetControlsTimer();
+
+  if (e.touches.length === 2 && isPinching) {
+    e.preventDefault();
+    const t1 = e.touches[0];
+    const t2 = e.touches[1];
+    const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+    if (initialPinchDist > 0) {
+      const factor = dist / initialPinchDist;
+      let newScale = initialPinchScale * factor;
+      newScale = Math.max(1.0, Math.min(3.0, newScale));
+      
+      magazineState.zoomScale = newScale;
+      applyZoom();
+    }
+  }
 }
 
 function handleTouchEnd(e) {
+  resetControlsTimer();
+
+  if (isPinching && e.touches.length < 2) {
+    isPinching = false;
+    return;
+  }
+
   if (magazineState.zoomScale > 1.0) return;
-  const dx = e.changedTouches[0].clientX - touchStartX;
-  const dy = e.changedTouches[0].clientY - touchStartY;
-  if (Math.abs(dx) > 60 && Math.abs(dy) < 80) {
-    if (dx < 0) goNext();
-    else goPrev();
+
+  if (e.changedTouches.length === 1) {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > 60 && Math.abs(dy) < 80) {
+      if (dx < 0) goNext();
+      else goPrev();
+    }
   }
 }
 
@@ -3144,7 +3219,7 @@ function flipSingle(to) {
 function setupMagazineEvents() {
   const {
     prevBtn, nextBtn, prevOverlay, nextOverlay, scrubber, pageInput,
-    zoomIn, zoomOut, zoomReset, fsToggle, viewport, viewModeBookBtn, viewModeSingleBtn
+    zoomIn, zoomOut, zoomReset, fsToggle, viewport, viewModeBookBtn, viewModeSingleBtn, card
   } = magazineElements;
 
   if (prevBtn) prevBtn.onclick = goPrev;
@@ -3181,8 +3256,8 @@ function setupMagazineEvents() {
 
   if (zoomIn) {
     zoomIn.onclick = () => {
-      if (magazineState.zoomScale < 2.5) {
-        magazineState.zoomScale = Math.min(2.5, magazineState.zoomScale + 0.25);
+      if (magazineState.zoomScale < 3.0) {
+        magazineState.zoomScale = Math.min(3.0, magazineState.zoomScale + 0.25);
         applyZoom();
       }
     };
@@ -3201,6 +3276,11 @@ function setupMagazineEvents() {
 
   if (fsToggle) fsToggle.onclick = toggleFullscreen;
 
+  const floatingClose = document.getElementById('magazineFloatingClose');
+  if (floatingClose) {
+    floatingClose.onclick = toggleFullscreen;
+  }
+
   document.addEventListener('fullscreenchange', handleFullscreenChange);
   document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
   document.addEventListener('mozfullscreenchange', handleFullscreenChange);
@@ -3208,8 +3288,30 @@ function setupMagazineEvents() {
   window.addEventListener('keydown', handleKeyDown);
 
   if (viewport) {
-    viewport.addEventListener('touchstart', handleTouchStart, { passive: true });
-    viewport.addEventListener('touchend', handleTouchEnd, { passive: true });
+    viewport.addEventListener('touchstart', handleTouchStart, { passive: false });
+    viewport.addEventListener('touchmove', handleTouchMove, { passive: false });
+    viewport.addEventListener('touchend', handleTouchEnd, { passive: false });
+    viewport.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+  }
+
+  if (card) {
+    card.addEventListener('mousemove', resetControlsTimer);
+    card.addEventListener('click', resetControlsTimer);
+    
+    const controlsEl = document.getElementById('magazineControls');
+    if (controlsEl) {
+      controlsEl.addEventListener('mouseenter', () => {
+        if (controlsTimeout) {
+          clearTimeout(controlsTimeout);
+          controlsTimeout = null;
+        }
+      });
+      controlsEl.addEventListener('mouseleave', () => {
+        if (card.classList.contains('magazine-fullscreen-active')) {
+          resetControlsTimer();
+        }
+      });
+    }
   }
 
   if (viewModeBookBtn) {
