@@ -2681,6 +2681,67 @@ function update() {
   updateBookAspectOnUpdate();
 }
 
+function resizeBook() {
+  const { book, viewport } = magazineElements;
+  if (!book || !viewport) return;
+
+  let aspect = 4/3;
+  const { viewMode } = magazineState;
+  
+  let activeImg = null;
+  if (viewMode === 'single') {
+    activeImg = magazineElements.img;
+  } else {
+    activeImg = (magazineElements.spreadRightImg && magazineElements.spreadRightImg.naturalWidth > 0) 
+      ? magazineElements.spreadRightImg 
+      : magazineElements.spreadLeftImg;
+  }
+
+  if (activeImg && activeImg.naturalWidth && activeImg.naturalHeight) {
+    const imgAspect = activeImg.naturalWidth / activeImg.naturalHeight;
+    aspect = viewMode === 'book' ? 2 * imgAspect : imgAspect;
+  } else {
+    aspect = viewMode === 'book' ? 2.66 : 1.33;
+  }
+
+  const vwWidth = viewport.clientWidth;
+  const vwHeight = viewport.clientHeight;
+
+  if (vwWidth === 0 || vwHeight === 0) return;
+
+  const card = document.getElementById('magazineCard');
+  const isFS = card && card.classList.contains('magazine-fullscreen-active');
+  
+  let paddingX = 32;
+  let paddingY = 32;
+
+  if (isFS) {
+    if (window.innerWidth < 768) {
+      paddingX = 40;
+      paddingY = 160;
+    } else {
+      paddingX = 60;
+      paddingY = 120;
+    }
+  }
+
+  const maxW = Math.max(100, vwWidth - paddingX);
+  const maxH = Math.max(100, vwHeight - paddingY);
+
+  let targetW, targetH;
+  if (maxW / maxH > aspect) {
+    targetH = maxH;
+    targetW = maxH * aspect;
+  } else {
+    targetW = maxW;
+    targetH = maxW / aspect;
+  }
+
+  book.style.width = `${Math.round(targetW)}px`;
+  book.style.height = `${Math.round(targetH)}px`;
+  book.style.aspectRatio = `${aspect}`;
+}
+
 function adjustBookAspectRatio(image) {
   if (!image || !image.naturalWidth || !image.naturalHeight) return;
   const { book } = magazineElements;
@@ -2691,6 +2752,7 @@ function adjustBookAspectRatio(image) {
   } else {
     book.style.aspectRatio = `${imgAspect}`;
   }
+  resizeBook();
 }
 
 function updateBookAspectOnUpdate() {
@@ -2706,6 +2768,7 @@ function updateBookAspectOnUpdate() {
       adjustBookAspectRatio(spreadLeftImg);
     }
   }
+  resizeBook();
 }
 
 function setViewMode(mode) {
@@ -2751,6 +2814,7 @@ function handleFullscreenChange() {
         `;
       }
       resetControlsTimer();
+      setTimeout(resizeBook, 100);
     } else {
       card.classList.remove('magazine-fullscreen-active');
       card.classList.remove('hide-interface');
@@ -2766,6 +2830,7 @@ function handleFullscreenChange() {
           <span>Pantalla Completa</span>
         `;
       }
+      setTimeout(resizeBook, 100);
     }
   }
 }
@@ -3320,6 +3385,9 @@ function setupMagazineEvents() {
   if (viewModeSingleBtn) {
     viewModeSingleBtn.onclick = () => setViewMode('single');
   }
+
+  window.addEventListener('resize', resizeBook);
+  setTimeout(resizeBook, 50);
 }
 
 async function renderMagazine() {
